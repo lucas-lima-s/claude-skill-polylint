@@ -1,0 +1,34 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure git identity for the pre-commit smoke test
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI"
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest -q
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - run: bash -n polylint.sh
+      - run: shellcheck -S warning polylint.sh
