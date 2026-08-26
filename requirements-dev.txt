@@ -1,0 +1,7 @@
+pytest
+ruff
+pre-commit
+pylint
+mypy
+vulture
+bandit
