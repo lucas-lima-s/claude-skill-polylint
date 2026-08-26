@@ -28,9 +28,19 @@ def _bash_executable() -> str:
     return shutil.which("bash") or "bash"
 
 
+def _project_python() -> str:
+    for candidate in (
+        ROOT / ".venv" / "Scripts" / "python.exe",
+        ROOT / ".venv" / "bin" / "python",
+    ):
+        if candidate.exists():
+            return str(candidate)
+    return sys.executable
+
+
 def _run_polylint(target: str, *extra_args: str, cwd: Path) -> subprocess.CompletedProcess:
     env = os.environ.copy()
-    env["POLYLINT_PY"] = sys.executable
+    env["POLYLINT_PY"] = _project_python()
     cmd = [_bash_executable(), str(ROOT / "polylint.sh"), target, *extra_args]
     return subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, env=env)
 
