@@ -1,0 +1,8 @@
+repos:
+  - repo: local
+    hooks:
+      - id: strip-trailing-whitespace
+        name: strip trailing whitespace
+        language: system
+        entry: bash hooks/strip_trailing_whitespace.sh
+        types: [python]

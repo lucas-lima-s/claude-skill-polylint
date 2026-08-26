@@ -1,0 +1,11 @@
+[MAIN]
+ignore-paths=
+
+[MESSAGES CONTROL]
+disable=missing-module-docstring,missing-function-docstring
+
+[TYPECHECK]
+ignored-modules=
+
+[FORMAT]
+max-line-length=100

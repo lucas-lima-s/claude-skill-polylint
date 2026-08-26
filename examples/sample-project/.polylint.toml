@@ -1,0 +1,19 @@
+[python]
+interpreter = "python3"
+
+[tools]
+disabled = []
+
+[configs]
+ruff = "../../config/ruff.example.toml"
+pylint = ""
+mypy = ""
+flake8 = ""
+
+exclude = ["**/node_modules/**", "**/.venv/**"]
+
+[[profiles]]
+name = "legacy"
+match = ["**/legacy/**"]
+interpreter = "python3"
+tools = ["flake8"]
