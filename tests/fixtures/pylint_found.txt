@@ -1,0 +1,5 @@
+===== pylint (exit=28) =====
+src/app.py:5:0: C0116: Missing function or method docstring (missing-function-docstring)
+
+-----------------------------------
+Your code has been rated at 8.00/10

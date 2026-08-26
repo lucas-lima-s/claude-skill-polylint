@@ -1,0 +1,2 @@
+===== eslint (exit=tool-missing) =====
+no package.json + eslint config found walking up from src/util.js, and POLYLINT_JS_DIR is not set

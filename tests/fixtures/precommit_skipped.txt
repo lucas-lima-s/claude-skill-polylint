@@ -1,0 +1,2 @@
+===== precommit (exit=skipped) =====
+no .pre-commit-config.yaml found walking up from src/app.py

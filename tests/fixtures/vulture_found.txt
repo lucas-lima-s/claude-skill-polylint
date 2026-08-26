@@ -1,0 +1,2 @@
+===== vulture (exit=3) =====
+src/app.py:13: unused function '_unused_helper' (60% confidence)

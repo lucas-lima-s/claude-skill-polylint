@@ -1,0 +1,7 @@
+===== precommit (exit=1) =====
+strip trailing whitespace................................................Failed
+- hook id: strip-trailing-whitespace
+- exit code: 1
+- files were modified by this hook
+
+  fixed: src/app.py

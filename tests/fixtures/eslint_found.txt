@@ -1,0 +1,5 @@
+===== eslint (exit=1) =====
+src/util.js
+  5:7  error  'unused' is assigned a value but never used  no-unused-vars
+
+1 problem (1 error, 0 warnings)

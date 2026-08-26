@@ -1,0 +1,4 @@
+===== bandit (exit=1) =====
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   Location: src/app.py:9

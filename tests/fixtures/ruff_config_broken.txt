@@ -1,0 +1,8 @@
+===== ruff (exit=2) =====
+ruff failed
+  Cause: Failed to parse pyproject.toml
+  Cause: TOML parse error at line 4, column 10
+    |
+  4 | select = ["ALL"
+    |          ^
+    invalid array

@@ -1,0 +1,2 @@
+===== ruff (exit=127) =====
+bash: line 1: definitely-not-a-real-tool: command not found

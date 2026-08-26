@@ -1,0 +1,2 @@
+===== prettier (exit=1) =====
+[warn] src/util.js

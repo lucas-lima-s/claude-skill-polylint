@@ -1,0 +1,5 @@
+===== semgrep (exit=skipped) =====
+semgrep not found. Install options:
+  1. "$POLYLINT_PY" -m pip install semgrep
+  2. WSL: wsl -e pipx install semgrep (once installed, --semgrep routes through it automatically)
+  3. Docker: docker run --rm -v "${PWD}:/src" returntocorp/semgrep:latest --config p/python /src

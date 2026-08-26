@@ -1,0 +1,3 @@
+===== mypy (exit=2) =====
+src/app.py:10: error: Duplicate implementation for overloaded function [no-redef]
+src/app.py: error: "app" errors prevented further checking
