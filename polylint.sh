@@ -168,8 +168,24 @@ if [ -n "$config_file" ]; then
 fi
 
 if [ -n "$py_interpreter" ]; then
-  resolved_interpreter="$(command -v "$py_interpreter" || true)"
-  [ -n "$resolved_interpreter" ] && RUN_PY="$resolved_interpreter"
+  # Bare names like python3 must not steal a different interpreter off PATH
+  # (Windows CI ships python3.exe next to the uv venv). Honor POLYLINT_PY.
+  case "$py_interpreter" in
+    python|python3|python3.*)
+      if [ -z "${POLYLINT_PY:-}" ]; then
+        resolved_interpreter="$(command -v "$py_interpreter" || true)"
+        [ -n "$resolved_interpreter" ] && RUN_PY="$resolved_interpreter"
+      fi
+      ;;
+    *)
+      if [ -x "$py_interpreter" ]; then
+        RUN_PY="$py_interpreter"
+      else
+        resolved_interpreter="$(command -v "$py_interpreter" || true)"
+        [ -n "$resolved_interpreter" ] && RUN_PY="$resolved_interpreter"
+      fi
+      ;;
+  esac
 fi
 
 shopt -s globstar nullglob 2>/dev/null || true
