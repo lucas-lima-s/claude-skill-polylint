@@ -1,31 +1,31 @@
 ---
 name: polylint
-description: Run the project's own lint stack over a file or directory in three phases - replay the repo's pre-commit hooks, run read-only analyzers in parallel, then propose fixes for approval - and report an honest per-tool status instead of a silent pass. Use whenever code has just been written or edited and needs validation, or when the user asks to lint, check style, or validate a file. Triggers on "lint this", "run lint", "check code style", "validate this file", "rode lint", "valide os lints", "/polylint".
+description: "Runs a project's own lint stack on a file or directory, reports an honest per-tool status and proposes fixes for approval. Only on an explicit request: 'lint this', 'run lint', 'check code style', '/polylint', 'rode lint', 'valide os lints'."
 ---
 
 # polylint - honest three-phase lint runner
 
 ## What it does
 
-A single invocation runs three phases in a fixed order, each with a
+A single invocation runs up to three phases in a fixed order, each with a
 different permission model:
 
 | Phase | What it does | Permission |
 |---|---|---|
-| **1 - Pre-commit replay** | Runs the target repository's own `.pre-commit-config.yaml` against the target. Hooks can and will mutate files (formatters, `--fix` variants, whitespace fixers). | **No permission needed - always runs.** The user already authorized these hooks the moment they were checked into the repository's own config. |
+| **1 - Pre-commit replay (opt-in)** | Runs the target repository's own `.pre-commit-config.yaml` against the target, only with `--precommit`. Hooks can and will mutate files (formatters, `--fix` variants, whitespace fixers), and a remote hook is downloaded and executed from its repository. | **Only when the user asked for it.** Say first that hooks may rewrite files; the runner prints a warning listing every remote hook source. |
 | **2 - Read-only analysis** | Every enabled analyzer (ruff, pylint, mypy, vulture, bandit, and any opt-in tool) runs in parallel, read-only. Reports findings only, never mutates. | **No permission needed - always runs.** |
-| **3 - Approval-gated recommendations** | Claude enumerates the leftover findings from Phase 2 and asks which items to apply. Scope is semantic/structural changes: manual refactors, `--fix` on rules the pre-commit hooks didn't cover, `noqa`/`# type: ignore` suppressions, config adjustments. | **Ask per item (or per numbered group). Never apply silently, never in bulk without a per-item choice.** |
+| **3 - Approval-gated recommendations** | The agent enumerates the leftover findings from Phase 2 and asks which items to apply. Scope is semantic/structural changes: manual refactors, `--fix` on rules the pre-commit hooks didn't cover, `noqa`/`# type: ignore` suppressions, config adjustments. | **Ask per item (or per numbered group). Never apply silently, never in bulk without a per-item choice.** |
 
-The permission split is the point: a hook the team already committed to the
-repository has already been authorized by the act of committing it, so
-replaying it needs no fresh confirmation. A Phase 3 recommendation has not
-been authorized by anyone yet, so it always waits for an explicit answer.
+The permission split is the point: Phase 2 only reads, so it always runs;
+Phase 1 changes files and may run third-party code, so it needs the user's
+request; a Phase 3 recommendation has not been authorized by anyone yet, so
+it always waits for an explicit answer.
 
 ## When to use / when not to
 
-Use it whenever code has just been written or edited and needs validating
-before it's handed back, or whenever a user explicitly asks to lint, check
-style, or validate a file or directory.
+Use it when the user explicitly asks to lint, check style, or validate a
+file or directory. Do not start it on your own after editing code; offer it
+in one line instead.
 
 Do not use it for:
 
@@ -38,13 +38,16 @@ Do not use it for:
 
 ## Invocation
 
-Always route through the runner - never hand-compose parallel linter calls:
+Always route through the runner - never hand-compose parallel linter calls.
+`<skill-dir>` is the directory that contains this SKILL.md:
 
 ```
-bash "$HOME/.claude/skills/polylint/polylint.sh" <target> [flags]
+bash "<skill-dir>/polylint.sh" <target> [flags]
 ```
 
-One Bash call total. The runner spawns every Phase 2 analyzer as a
+On Windows from PowerShell, `bash` may resolve to WSL's `System32\bash.exe`, which cannot read Windows paths; call Git for Windows' bash explicitly (`& "$env:ProgramFiles\Git\bin\bash.exe" "<skill-dir>/polylint.sh" ...`).
+
+One shell call total. The runner spawns every Phase 2 analyzer as a
 background job internally and waits for all of them; the caller sees a
 single command and a single, fixed-order report.
 
@@ -54,9 +57,10 @@ single command and a single, fixed-order report.
 |---|---|---|
 | `--config FILE` | auto-discovered | Use this `.polylint.toml` instead of walking up from the target. |
 | `--profile NAME` | auto-matched | Force a specific `[[profiles]]` entry instead of glob-matching the target. |
-| `--no-precommit` | Phase 1 on | Skip the pre-commit replay entirely. |
+| `--precommit` | off | Run Phase 1, the pre-commit replay (mutates files; see above). |
+| `--no-precommit` | - | Accepted for compatibility; Phase 1 is already off unless `--precommit` is passed. |
 | `--no-mypy` / `--no-pylint` / `--no-vulture` / `--no-bandit` | all on | Skip that analyzer. `ruff` is mandatory and has no opt-out flag. |
-| `--flake8` / `--black` / `--isort` / `--pyright` / `--semgrep` | all off | Opt in to that analyzer. |
+| `--flake8` / `--black` / `--isort` / `--pyright` / `--semgrep` | all off | Opt in to that analyzer. `--semgrep` downloads the `p/python` rules from the Semgrep registry, so it needs network access. |
 | `--json` | off | Pipe the report through `scripts/classify.py --format json` instead of printing raw tool output. |
 | `--version` | - | Print the runner version and exit. |
 
@@ -130,21 +134,13 @@ a direct request to run `ruff format`).
 ## Installing missing tools
 
 ```
-python -m pip install ruff
-python -m pip install pylint
-python -m pip install mypy
-python -m pip install vulture
-python -m pip install bandit
-python -m pip install flake8
-python -m pip install black
-python -m pip install isort
-python -m pip install pyright
-python -m pip install semgrep
-python -m pip install pre-commit
+"$POLYLINT_PY" -m pip install ruff pylint mypy vulture bandit pre-commit
+"$POLYLINT_PY" -m pip install flake8 black isort pyright semgrep
 ```
 
-No absolute interpreter paths - each command targets whichever Python
-`POLYLINT_PY` (or `python3`/`python` on `PATH`) resolves to. `pre-commit`
+`POLYLINT_PY` is the interpreter the runner uses (when it is unset, use
+`python3` or `python` from `PATH` in its place). Install only after the user
+agrees. `pre-commit`
 downloads its hook environments on first run for any *remote* hook - a
 `repo: local` hook (the kind this project's own examples use) needs no
 download at all.
@@ -172,35 +168,3 @@ download at all.
   invocation without a project's own `mypy_path` otherwise floods on
   unrelated cross-package imports; when that flag is in effect the header
   says so.
-
-## Verification probes
-
-Run these after any change to `polylint.sh` or `scripts/classify.py`,
-against `examples/sample-project/`:
-
-1. `polylint.sh examples/sample-project/src/app.py --no-precommit` - ruff,
-   pylint, mypy, vulture, bandit all fire; ruff reports `F401` for the
-   unused `os` import.
-2. `polylint.sh examples/sample-project/src/app.py --no-precommit --no-mypy --no-pylint --no-bandit --no-vulture` -
-   only `ruff` runs.
-3. `polylint.sh examples/sample-project/src/legacy/old_module.py --no-precommit --no-mypy --no-pylint --no-vulture --no-bandit` -
-   header shows `profile: legacy`; only `flake8` (the profile's declared
-   tool set) is attempted.
-4. `polylint.sh examples/sample-project/src/util.js --no-precommit` - no
-   `package.json`/ESLint config is present, so the `eslint` block reports
-   `tool-missing` rather than a false `ok`.
-5. `polylint.sh examples/sample-project/src/app.py` (Phase 1 enabled, inside
-   a git repository) - the `repo: local` pre-commit hook strips the
-   deliberately trailing-whitespace line and the `precommit` block reports
-   the mutated file.
-6. `POLYLINT_RUFF_CMD='definitely-not-a-real-tool' polylint.sh examples/sample-project/src/app.py --no-precommit` -
-   the `ruff` block reports `tool-missing`, never `ok`.
-7. `polylint.sh examples/sample-project/src/app.py --no-precommit --json | python scripts/classify.py --format json` (or
-   pass `--json` once and skip the second call) - valid JSON with one entry
-   per tool.
-8. `python scripts/classify.py --dump-config examples/sample-project/.polylint.toml --target examples/sample-project/src/legacy/old_module.py` -
-   prints `POLYLINT_PROFILE=legacy` and a `POLYLINT_TOOLS_DISABLED` list that
-   does not contain `flake8`.
-9. `python scripts/classify.py tests/fixtures/ruff_config_broken.txt` -
-   `config-broken`, not `found` or `ok`.
-10. `python scripts/classify.py tests/fixtures/mypy_aborted.txt` - `aborted`.

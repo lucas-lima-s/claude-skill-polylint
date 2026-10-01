@@ -17,8 +17,14 @@ new machine.
 
 ## Installing the skill
 
+Clone the repository anywhere and expose the folder as `polylint` in the
+skills directory of each agent you use (for example `~/.claude/skills`,
+`~/.agents/skills` or `~/.gemini/config/skills`), as a symlink or a copy.
+The skill calls `<skill-dir>/polylint.sh` relative to its own folder, so no
+particular location is required.
+
 ```bash
-git clone https://github.com/lucas-lima-s/claude-skill-polylint "$HOME/.claude/skills/polylint"
+git clone https://github.com/lucas-lima-s/claude-skill-polylint <skill-dir>
 ```
 
 ## Installing the analyzers
@@ -28,9 +34,12 @@ Install whichever of these you want available, on whatever interpreter
 `PATH`):
 
 ```bash
-python -m pip install ruff pylint mypy vulture bandit pre-commit
-python -m pip install flake8 black isort pyright semgrep   # optional / opt-in tools
+"$POLYLINT_PY" -m pip install ruff pylint mypy vulture bandit pre-commit
+"$POLYLINT_PY" -m pip install flake8 black isort pyright semgrep
 ```
+
+The second line holds the optional, opt-in tools. When `POLYLINT_PY` is
+unset, use the `python3` or `python` the runner would pick from `PATH`.
 
 For JS/TS targets, `eslint` and `prettier` are resolved from the target
 project's own `node_modules` (via `npx --no-install`) - nothing to install
@@ -52,7 +61,7 @@ these:
 ## Validating the install
 
 ```bash
-bash "$HOME/.claude/skills/polylint/polylint.sh" examples/sample-project/src/app.py --no-precommit
+bash "<skill-dir>/polylint.sh" examples/sample-project/src/app.py
 ```
 
 Expected: a `ruff` block reporting `F401` for the unused `os` import, plus

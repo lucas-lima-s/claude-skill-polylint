@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Phase 1 (pre-commit replay) is opt-in with `--precommit`; `--no-precommit`
+  stays accepted as a no-op. The runner warns on stderr and in the report
+  when the config uses remote hooks.
+- The skill triggers only on an explicit request and calls the runner
+  relative to its own directory instead of a Claude-only path.
+- Docker hint uses the `semgrep/semgrep` image; SKILL.md notes that
+  `--semgrep` needs network access.
+- Install commands use `"$POLYLINT_PY" -m pip`.
+- Verification probes moved from SKILL.md to CONTRIBUTING.md.
+
+### Fixed
+
+- A target path containing `'` no longer breaks the WSL semgrep command.
+
 ## [0.1.0] - 2026-08-25
 
 ### Added

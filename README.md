@@ -1,8 +1,8 @@
 <h1 align="center">polylint</h1>
 
 <p align="center">
-  A three-phase lint runner for <a href="https://claude.com/claude-code">Claude Code</a>:
-  replay a repository's own pre-commit hooks, fan out read-only analyzers in
+  A three-phase lint runner for coding agents (Claude Code, Codex, agy, Cursor):
+  optionally replay a repository's own pre-commit hooks, fan out read-only analyzers in
   parallel, and report an honest per-tool status instead of a silent pass.
 </p>
 
@@ -28,29 +28,35 @@ enforces above everything else:
 
 > A non-zero exit with output nothing recognizes can never be reported as `ok`.
 
-It also replays a target repository's *own* `.pre-commit-config.yaml` before
-running anything else, on the theory that a hook the team already checked
-into the repo has already been authorized - no fresh confirmation needed to
-run it again.
+With `--precommit` it also replays a target repository's *own*
+`.pre-commit-config.yaml` before running anything else. That phase is
+opt-in because hooks rewrite files and remote hooks download and execute
+third-party code; the runner lists every remote hook source before running.
 
 ## What it does
 
 ```mermaid
 flowchart LR
-    A["Phase 1\nPre-commit replay\n(may mutate files)"] --> B["Phase 2\nParallel read-only analysis\n(ruff, pylint, mypy, vulture, bandit, ...)"]
-    B --> C["Phase 3\nApproval-gated recommendations\n(Claude asks before applying anything)"]
+    A["Phase 1 (opt-in)\nPre-commit replay\n(may mutate files)"] --> B["Phase 2\nParallel read-only analysis\n(ruff, pylint, mypy, vulture, bandit, ...)"]
+    B --> C["Phase 3\nApproval-gated recommendations\n(the agent asks before applying anything)"]
 ```
 
 | Phase | What runs | Permission |
 |---|---|---|
-| 1 - Pre-commit replay | The target repo's own `.pre-commit-config.yaml`, replayed against the target. Hooks may mutate files. | Always runs - already authorized by being committed. |
+| 1 - Pre-commit replay | The target repo's own `.pre-commit-config.yaml`, replayed against the target. Hooks may mutate files. | Only with `--precommit`, when the user asked for it. |
 | 2 - Read-only analysis | Every enabled analyzer, launched in parallel: `ruff` (mandatory), `pylint`, `mypy`, `vulture`, `bandit`, plus opt-in `flake8`/`black`/`isort`/`pyright`/`semgrep`, and `eslint`/`prettier` for JS/TS targets. | Always runs - never mutates. |
 | 3 - Approval-gated recommendations | A numbered list of leftover findings, presented for the caller to approve item-by-item. | Nothing is applied without an explicit answer. |
 
 ## Install
 
+Clone the repository anywhere and expose the folder as `polylint` in the
+skills directory of each agent you use (for example `~/.claude/skills`,
+`~/.agents/skills` or `~/.gemini/config/skills`), as a symlink or a copy.
+The skill calls `<skill-dir>/polylint.sh` relative to its own folder, so no
+particular location is required.
+
 ```bash
-git clone https://github.com/lucas-lima-s/claude-skill-polylint "$HOME/.claude/skills/polylint"
+git clone https://github.com/lucas-lima-s/claude-skill-polylint <skill-dir>
 ```
 
 Requires `bash`, a Python 3.11+ interpreter (for `scripts/classify.py`'s use
@@ -73,7 +79,8 @@ Or, as a Claude Code skill, simply ask to lint something - `/polylint`,
 |---|---|---|
 | `--config FILE` | auto-discovered | Use this `.polylint.toml` instead of walking up from the target. |
 | `--profile NAME` | auto-matched | Force a specific `[[profiles]]` entry. |
-| `--no-precommit` | on | Skip Phase 1 entirely. |
+| `--precommit` | off | Run Phase 1, the pre-commit replay (hooks may rewrite files; remote hooks are downloaded). |
+| `--no-precommit` | - | Compatibility no-op; Phase 1 is off by default. |
 | `--no-mypy` / `--no-pylint` / `--no-vulture` / `--no-bandit` | all on | Skip that analyzer. `ruff` has no opt-out. |
 | `--flake8` / `--black` / `--isort` / `--pyright` / `--semgrep` | all off | Opt in to that analyzer. |
 | `--json` | off | Pipe the report through the classifier and print JSON. |

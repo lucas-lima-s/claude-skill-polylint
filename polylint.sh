@@ -6,7 +6,7 @@ POLYLINT_VERSION="0.1.0"
 usage() {
   cat >&2 <<'EOF'
 usage: polylint.sh <target> [--config FILE] [--profile NAME]
-                    [--no-precommit] [--no-mypy] [--no-pylint] [--no-vulture] [--no-bandit]
+                    [--precommit] [--no-mypy] [--no-pylint] [--no-vulture] [--no-bandit]
                     [--flake8] [--black] [--isort] [--pyright] [--semgrep]
                     [--json] [--version]
 EOF
@@ -22,7 +22,7 @@ fi
 
 target="$1"; shift
 
-run_precommit=1
+run_precommit=0
 run_mypy=1
 run_pylint=1
 run_vulture=1
@@ -49,6 +49,7 @@ explicit_semgrep=0
 while [ $# -gt 0 ]; do
   arg="$1"
   case "$arg" in
+    --precommit) run_precommit=1 ;;
     --no-precommit) run_precommit=0 ;;
     --no-mypy) run_mypy=0; explicit_mypy=1 ;;
     --no-pylint) run_pylint=0; explicit_pylint=1 ;;
@@ -168,8 +169,6 @@ if [ -n "$config_file" ]; then
 fi
 
 if [ -n "$py_interpreter" ]; then
-  # Bare names like python3 must not steal a different interpreter off PATH
-  # (Windows CI ships python3.exe next to the uv venv). Honor POLYLINT_PY.
   case "$py_interpreter" in
     python|python3|python3.*)
       if [ -z "${POLYLINT_PY:-}" ]; then
@@ -268,8 +267,17 @@ if [ "$run_precommit" = 1 ]; then
   if [ -n "$cfg" ]; then
     cfg_dir="$(dirname "$cfg")"
     rel_target="$(realpath --relative-to="$cfg_dir" "$target_abs" 2>/dev/null || echo "$target_abs")"
+    remote_hooks="$(sed -n 's/^[[:space:]]*-[[:space:]]*repo:[[:space:]]*//p' "$cfg" | tr -d "\"'\r" | grep -v -x -e local -e meta || true)"
+    : > "$tmp/precommit.warn"
+    if [ -n "$remote_hooks" ]; then
+      {
+        echo "polylint: warning: remote pre-commit hooks are downloaded and executed from:"
+        printf '%s\n' "$remote_hooks" | sed 's/^/  /'
+      } | tee "$tmp/precommit.warn" >&2
+    fi
     tool_cmd precommit pre_commit
-    ( cd "$cfg_dir" && "${TOOL_CMD[@]}" run --files "$rel_target" > "$tmp/precommit.out" 2>&1; echo "$?" > "$tmp/precommit.exit" )
+    ( cd "$cfg_dir" && "${TOOL_CMD[@]}" run --files "$rel_target" > "$tmp/precommit.run" 2>&1; echo "$?" > "$tmp/precommit.exit" )
+    cat "$tmp/precommit.warn" "$tmp/precommit.run" > "$tmp/precommit.out"
     precommit_ran=1
   else
     echo "no .pre-commit-config.yaml found walking up from $target" > "$tmp/precommit.out"
@@ -352,7 +360,7 @@ if [ "$lang" = "py" ]; then
       command -v cygpath >/dev/null 2>&1 && win_target="$(cygpath -w "$target")"
       wsl_target="$(wsl.exe -e wslpath -a "$win_target" 2>/dev/null | tr -d '\r\n')"
       if [ -n "$wsl_target" ]; then
-        launch semgrep wsl.exe -e bash -lic "semgrep --config p/python --quiet --error --timeout 60 '$wsl_target'"
+        launch semgrep wsl.exe -e bash -lic 'semgrep --config p/python --quiet --error --timeout 60 "$1"' _ "$wsl_target"
       else
         printf 'semgrep (WSL): failed to convert %s to a WSL path\n' "$win_target" > "$tmp/semgrep.out"
         echo "skipped" > "$tmp/semgrep.exit"
@@ -362,7 +370,7 @@ if [ "$lang" = "py" ]; then
         echo "semgrep not found. Install options:"
         echo "  1. \"\$POLYLINT_PY\" -m pip install semgrep"
         echo "  2. WSL: wsl -e pipx install semgrep (once installed, --semgrep routes through it automatically)"
-        echo "  3. Docker: docker run --rm -v \"\${PWD}:/src\" returntocorp/semgrep:latest --config p/python /src"
+        echo "  3. Docker: docker run --rm -v \"\${PWD}:/src\" semgrep/semgrep:latest --config p/python /src"
       } > "$tmp/semgrep.out"
       echo "skipped" > "$tmp/semgrep.exit"
     fi

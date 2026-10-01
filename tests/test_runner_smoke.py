@@ -25,6 +25,12 @@ def _prepare_repo(tmp_path: Path) -> Path:
 
 
 def _bash_executable() -> str:
+    if os.name == "nt":
+        git = shutil.which("git")
+        if git:
+            candidate = Path(git).resolve().parents[1] / "bin" / "bash.exe"
+            if candidate.is_file():
+                return str(candidate)
     return shutil.which("bash") or "bash"
 
 
@@ -65,6 +71,7 @@ def test_phase1_runs_local_precommit_hook_and_reports_mutation(tmp_path: Path) -
     project_dir = _prepare_repo(tmp_path)
     result = _run_polylint(
         "src/app.py",
+        "--precommit",
         "--no-mypy",
         "--no-pylint",
         "--no-bandit",
@@ -74,6 +81,48 @@ def test_phase1_runs_local_precommit_hook_and_reports_mutation(tmp_path: Path) -
     assert result.returncode == 0, result.stdout + result.stderr
     assert "===== precommit" in result.stdout
     assert "files were modified by this hook" in result.stdout
+    assert "remote pre-commit hooks" not in result.stdout
+
+
+def test_phase1_is_opt_in_and_leaves_files_untouched(tmp_path: Path) -> None:
+    project_dir = _prepare_repo(tmp_path)
+    before = (project_dir / "src" / "app.py").read_bytes()
+    result = _run_polylint(
+        "src/app.py",
+        "--no-mypy",
+        "--no-pylint",
+        "--no-bandit",
+        "--no-vulture",
+        cwd=project_dir,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "===== precommit" not in result.stdout
+    assert (project_dir / "src" / "app.py").read_bytes() == before
+
+
+def test_phase1_warns_about_remote_hooks(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRE_COMMIT_HOME", str(tmp_path / "pre-commit-home"))
+    project_dir = _prepare_repo(tmp_path)
+    config = project_dir / ".pre-commit-config.yaml"
+    config.write_text(
+        "repos:\n"
+        "  - repo: https://example.invalid/polylint-test-hooks\n"
+        "    rev: v0\n"
+        "    hooks:\n"
+        "      - id: x\n",
+        encoding="utf-8",
+    )
+    result = _run_polylint(
+        "src/app.py",
+        "--precommit",
+        "--no-mypy",
+        "--no-pylint",
+        "--no-bandit",
+        "--no-vulture",
+        cwd=project_dir,
+    )
+    assert "remote pre-commit hooks are downloaded and executed from" in result.stdout
+    assert "https://example.invalid/polylint-test-hooks" in result.stderr
 
 
 def test_legacy_profile_selected_for_legacy_target(tmp_path: Path) -> None:
